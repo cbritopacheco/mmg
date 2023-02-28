@@ -31,7 +31,7 @@
  * \copyright GNU Lesser General Public License.
  */
 
-#include <vtkparser.hpp>
+#include "vtkparser.hpp"
 #include "libmmgs.h"
 #include "libmmgs_private.h"
 
@@ -39,7 +39,8 @@
 
 static int MMGS_loadVtkMesh_part2 ( MMG5_pMesh mesh,MMG5_pSol *sol,
                                     vtkDataSet **dataset, int8_t ptMeditRef,
-                                    int8_t eltMeditRef,int nsols ) {
+                                    int8_t eltMeditRef,MMG5_int nsols,
+                                    int8_t metricData, int8_t lsData ) {
   int ier;
 
   if ( !MMGS_zaldy(mesh) ) {
@@ -59,7 +60,7 @@ static int MMGS_loadVtkMesh_part2 ( MMG5_pMesh mesh,MMG5_pSol *sol,
     return -1;
   }
 
-  ier = MMG5_loadVtkMesh_part2(mesh,sol,dataset,ptMeditRef,eltMeditRef,nsols);
+  ier = MMG5_loadVtkMesh_part2(mesh,sol,dataset,ptMeditRef,eltMeditRef,nsols,metricData,lsData);
 
   if ( ier < 1 ) {
     fprintf(stderr,"  ** ERROR WHEN PARSING THE INPUT FILE\n");
@@ -71,7 +72,7 @@ static int MMGS_loadVtkMesh_part2 ( MMG5_pMesh mesh,MMG5_pSol *sol,
 
 #endif
 
-int MMGS_loadVtpMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
+int MMGS_loadVtpMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol sol,const char *filename) {
 
 #ifndef USE_VTK
 
@@ -79,23 +80,28 @@ int MMGS_loadVtpMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
   vtkDataSet  *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtpMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtpMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
-  /* Check element count */
-  if ( nsols>1 ) {
-    fprintf(stderr,"Error: SEVERAL SOLUTIONS FOUND (%d)\n",nsols);
+  /* Check data fields */
+  if ( nsols > (metricData+lsData) ) {
+    fprintf(stderr,"Error: %d UNEXPECTED DATA FIELD(S)\n",nsols-metricData-lsData);
     return -1;
   }
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,&sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = met;
+  allSol[1] = sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,lsData);
   if ( ier < 1 ) {
     fprintf(stderr,"  ** ERROR WHEN PARSING THE INPUT FILE\n");
     return  ier;
@@ -103,7 +109,7 @@ int MMGS_loadVtpMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
 
   if ( sol ) {
     /* Check the metric type */
-    ier = MMG5_chkMetricType(mesh,&sol->type,NULL);
+    ier = MMG5_chkMetricType(mesh,&sol->type,&sol->entities,NULL);
   }
 
   return ier;
@@ -118,13 +124,16 @@ int MMGS_loadVtpMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
   vtkDataSet  *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtpMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtpMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
   mesh->nsols = nsols;
@@ -135,13 +144,15 @@ int MMGS_loadVtpMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   MMG5_SAFE_CALLOC(*sol,nsols,MMG5_Sol,return -1);
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = NULL;
+  allSol[1] = *sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,0);
 
   return ier;
 #endif
 }
 
-int MMGS_loadVtkMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
+int MMGS_loadVtkMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol sol,const char *filename) {
 
 #ifndef USE_VTK
 
@@ -149,23 +160,28 @@ int MMGS_loadVtkMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
-  vtkDataSet *dataset;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
+  vtkDataSet  *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtkMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtkMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
-  /* Check element count */
-  if ( nsols>1 ) {
-    fprintf(stderr,"Error: SEVERAL SOLUTIONS FOUND (%d)\n",nsols);
+  /* Check data fields */
+  if ( nsols > (metricData+lsData) ) {
+    fprintf(stderr,"Error: %d UNEXPECTED DATA FIELD(S)\n",nsols-metricData-lsData);
     return -1;
   }
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,&sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = met;
+  allSol[1] = sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,lsData);
   if ( ier < 1 ) {
     fprintf(stderr,"  ** ERROR WHEN PARSING THE INPUT FILE\n");
     return  ier;
@@ -173,7 +189,7 @@ int MMGS_loadVtkMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
 
   if ( sol ) {
     /* Check the metric type */
-    ier = MMG5_chkMetricType(mesh,&sol->type,NULL);
+    ier = MMG5_chkMetricType(mesh,&sol->type,&sol->entities,NULL);
   }
 
   return ier;
@@ -188,13 +204,16 @@ int MMGS_loadVtkMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
   vtkDataSet *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtkMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtkMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
   mesh->nsols = nsols;
@@ -205,13 +224,15 @@ int MMGS_loadVtkMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   MMG5_SAFE_CALLOC(*sol,nsols,MMG5_Sol,return -1);
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = NULL;
+  allSol[1] = *sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,0);
 
   return ier;
 #endif
 }
 
-int MMGS_loadVtuMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
+int MMGS_loadVtuMesh(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol sol,const char *filename) {
 
 #ifndef USE_VTK
 
@@ -219,23 +240,28 @@ int MMGS_loadVtuMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
   vtkDataSet  *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtuMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtuMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
-  /* Check element count */
-  if ( nsols>1 ) {
-    fprintf(stderr,"Error: SEVERAL SOLUTIONS FOUND (%d)\n",nsols);
+  /* Check data fields */
+  if ( nsols > (metricData+lsData) ) {
+    fprintf(stderr,"Error: %d UNEXPECTED DATA FIELD(S)\n",nsols-metricData-lsData);
     return -1;
   }
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,&sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = met;
+  allSol[1] = sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,lsData);
   if ( ier < 1 ) {
     fprintf(stderr,"  ** ERROR WHEN PARSING THE INPUT FILE\n");
     return  ier;
@@ -243,7 +269,7 @@ int MMGS_loadVtuMesh(MMG5_pMesh mesh,MMG5_pSol sol,const char *filename) {
 
   if ( sol ) {
     /* Check the metric type */
-    ier = MMG5_chkMetricType(mesh,&sol->type,NULL);
+    ier = MMG5_chkMetricType(mesh,&sol->type,&sol->entities,NULL);
   }
 
   return ier;
@@ -258,13 +284,16 @@ int MMGS_loadVtuMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   return -1;
 
 #else
-  int         ier,nsols;
-  int8_t      ptMeditRef,eltMeditRef;
+  int         ier;
+  int         nsols;
+  int8_t      ptMeditRef,eltMeditRef,metricData,lsData;
   vtkDataSet  *dataset;
+  MMG5_pSol   allSol[2];
 
   mesh->dim = 3;
 
-  ier = MMG5_loadVtuMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,&nsols);
+  ier = MMG5_loadVtuMesh_part1(mesh,filename,&dataset,&ptMeditRef,&eltMeditRef,
+                               &nsols,&metricData,&lsData);
   if ( ier < 1 ) return ier;
 
   mesh->nsols = nsols;
@@ -275,7 +304,9 @@ int MMGS_loadVtuMesh_and_allData(MMG5_pMesh mesh,MMG5_pSol *sol,const char *file
   MMG5_SAFE_CALLOC(*sol,nsols,MMG5_Sol,return -1);
 
   // Mesh alloc and transfer of the mesh from dataset toward the MMG5 Mesh Sol
-  ier = MMGS_loadVtkMesh_part2(mesh,sol,&dataset,ptMeditRef,eltMeditRef,nsols);
+  allSol[0] = NULL;
+  allSol[1] = *sol;
+  ier = MMGS_loadVtkMesh_part2(mesh,allSol,&dataset,ptMeditRef,eltMeditRef,nsols,metricData,0);
 
   return ier;
 #endif

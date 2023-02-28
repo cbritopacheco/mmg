@@ -40,11 +40,13 @@ FILE(MAKE_DIRECTORY ${MMG3D_BINARY_DIR})
 ############################################################################
 
 
-GENERATE_FORTRAN_HEADER ( mmg3d
-  ${MMG3D_SOURCE_DIR} libmmg3d.h
-  ${MMG3D_SHRT_INCLUDE}
-  ${MMG3D_BINARY_DIR} libmmg3df.h
-  )
+if (PERL_FOUND)
+  GENERATE_FORTRAN_HEADER ( mmg3d
+    ${MMG3D_SOURCE_DIR} libmmg3d.h
+    mmg/common
+    ${MMG3D_BINARY_DIR} libmmg3df.h
+    )
+endif (PERL_FOUND)
 
 ############################################################################
 #####
@@ -70,26 +72,26 @@ FILE(
   GLOB
   mmg3d_library_files
   ${MMG3D_SOURCE_DIR}/*.c
-  ${COMMON_SOURCE_DIR}/*.c
+  ${MMGCOMMON_SOURCE_DIR}/*.c
   ${MMG3D_SOURCE_DIR}/*.h
-  ${COMMON_SOURCE_DIR}/*.h
+  ${MMGCOMMON_SOURCE_DIR}/*.h
   ${MMG3D_SOURCE_DIR}/inoutcpp_3d.cpp
   )
 LIST(REMOVE_ITEM mmg3d_library_files
   ${MMG3D_SOURCE_DIR}/mmg3d.c
-  ${COMMON_SOURCE_DIR}/apptools.c
+  ${MMGCOMMON_SOURCE_DIR}/apptools.c
   )
 
 IF ( VTK_FOUND AND NOT USE_VTK MATCHES OFF )
   LIST(APPEND  mmg3d_library_files
-    ${COMMON_SOURCE_DIR}/vtkparser.cpp)
+    ${MMGCOMMON_SOURCE_DIR}/vtkparser.cpp)
 ENDIF ( )
 
 FILE(
   GLOB
   mmg3d_main_file
   ${MMG3D_SOURCE_DIR}/mmg3d.c
-  ${COMMON_SOURCE_DIR}/apptools.c
+  ${MMGCOMMON_SOURCE_DIR}/apptools.c
   )
 
 ############################################################################
@@ -132,18 +134,29 @@ IF ( LIBMMG3D_SHARED )
 ENDIF()
 
 # mmg3d header files needed for library
+#
+# Remark: header installation would need to be cleaned, for now, to allow
+# independent build of each project and because mmgs and mmg2d have been added
+# to mmg3d without rethinking the install architecture, the header files that
+# are common between codes are copied in all include directories (mmg/,
+# mmg/mmg3d/, mmg/mmgs/, mmg/mmg2d/).  they are also copied in build directory
+# to enable library call without installation.
 SET( mmg3d_headers
   ${MMG3D_SOURCE_DIR}/mmg3d_export.h
   ${MMG3D_SOURCE_DIR}/libmmg3d.h
-  ${MMG3D_BINARY_DIR}/libmmg3df.h
-  ${COMMON_SOURCE_DIR}/mmg_export.h
-  ${COMMON_SOURCE_DIR}/libmmgtypes.h
-  ${COMMON_BINARY_DIR}/libmmgtypesf.h
-  ${COMMON_BINARY_DIR}/mmgcmakedefines.h
-  ${COMMON_BINARY_DIR}/mmgversion.h
   )
-IF (NOT WIN32 OR MINGW)
-  LIST(APPEND mmg3d_headers  ${COMMON_BINARY_DIR}/git_log_mmg.h )
+
+IF ( PERL_FOUND )
+  LIST ( APPEND mmg3d_headers   ${MMG3D_BINARY_DIR}/libmmg3df.h )
+ENDIF()
+
+IF ( MMG_INSTALL_PRIVATE_HEADERS )
+  LIST ( APPEND mmg3d_headers
+    ${MMG3D_SOURCE_DIR}/libmmg3d_private.h
+    ${MMG3D_SOURCE_DIR}/inlined_functions_3d_private.h
+    ${MMG3D_SOURCE_DIR}/mmg3dexterns_private.h
+    ${MMG3D_SOURCE_DIR}/PRoctree_3d_private.h
+    )
 ENDIF()
 
 # install man pages
@@ -151,6 +164,18 @@ INSTALL(FILES ${PROJECT_SOURCE_DIR}/doc/man/mmg3d.1.gz DESTINATION ${CMAKE_INSTA
 
 # Install header files in /usr/local or equivalent
 INSTALL(FILES ${mmg3d_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mmg/mmg3d COMPONENT headers)
+
+IF ( MMG_INSTALL_PRIVATE_HEADERS )
+  COPY_1_HEADER_AND_CREATE_TARGET(
+    ${MMG3D_SOURCE_DIR} inlined_functions_3d_private ${MMG3D_INCLUDE} 3d)
+
+  COPY_1_HEADER_AND_CREATE_TARGET(
+    ${MMG3D_SOURCE_DIR} PRoctree_3d_private ${MMG3D_INCLUDE} 3d)
+
+  LIST ( APPEND tgt_opt_list copy3d_inlined_functions_3d_private
+    copy3d_PRoctree_3d_private )
+
+ENDIF()
 
 # Copy header files in project directory at build step
 COPY_HEADERS_AND_CREATE_TARGET ( ${MMG3D_SOURCE_DIR} ${MMG3D_BINARY_DIR} ${MMG3D_INCLUDE} 3d )
@@ -196,8 +221,8 @@ IF ( BUILD_TESTING )
       SET ( RUN_AGAIN OFF )
     ENDIF ( )
 
-    ADD_EXEC_TO_CI_TESTS ( ${PROJECT_NAME}3d EXECUT_MMG3D )
-    SET ( LISTEXEC_MMG ${EXECUT_MMG3D} )
+    SET ( EXECUT_MMG3D      $<TARGET_FILE:${PROJECT_NAME}3d> )
+    SET ( SHRT_EXECUT_MMG3D ${PROJECT_NAME}3d )
 
     IF ( ONLY_VERY_SHORT_TESTS )
       # Add tests that doesn't require to download meshes

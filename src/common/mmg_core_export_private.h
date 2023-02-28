@@ -21,17 +21,14 @@
 ** =============================================================================
 */
 
-#include "mmgcommon.h"
+#ifndef MMG_CORE_EXPORT_H
+#define MMG_CORE_EXPORT_H
 
+#include "mmg_export.h"
+#if defined(libmmg_so_EXPORTS) || defined(libmmgs_so_EXPORTS) || defined(libmmg2d_so_EXPORTS) || defined(libmmg3d_so_EXPORTS)
+#  define LIBMMG_CORE_EXPORT MMG_DECL_EXPORT
+#else
+#  define LIBMMG_CORE_EXPORT MMG_DECL_IMPORT
+#endif
 
-extern int  (*MMG5_chkmsh)(MMG5_pMesh,int,int);
-extern int  (*MMG5_bezierCP)(MMG5_pMesh ,MMG5_Tria *,MMG5_pBezier ,int8_t );
-extern double (*MMG5_lenSurfEdg)(MMG5_pMesh mesh,MMG5_pSol sol ,int ,int, int8_t );
-extern int  (*MMG5_indElt)(MMG5_pMesh mesh,int kel);
-extern int  (*MMG5_indPt)(MMG5_pMesh mesh,int kp);
-extern int  (*MMG5_grad2met_ani)(MMG5_pMesh,MMG5_pSol,MMG5_pTria,int,int);
-extern int  (*MMG5_grad2metreq_ani)(MMG5_pMesh,MMG5_pSol,MMG5_pTria,int,int);
-extern int    (*MMG5_compute_meanMetricAtMarkedPoints)( MMG5_pMesh,MMG5_pSol);
-#ifdef USE_SCOTCH
-extern int  (*MMG5_renumbering)(int,MMG5_pMesh,MMG5_pSol,MMG5_pSol,int*);
 #endif

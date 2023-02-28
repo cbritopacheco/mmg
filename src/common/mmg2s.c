@@ -30,8 +30,8 @@
  * \version 5
  * \copyright GNU Lesser General Public License.
  */
-#include "libmmg2d_private.h"
-#include "mmg2dexterns.h"
+#include "mmgcommon_private.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param mesh pointer toward the mesh structure.
@@ -42,7 +42,7 @@
  * Snap values of sol very close to 0 to 0 exactly in the case of surface ls splitting
  * (to avoid very small triangles in cutting)
  */
-int MMG2D_snapval_lssurf(MMG5_pMesh mesh, MMG5_pSol sol) {
+int MMG5_snpval_lssurf(MMG5_pMesh mesh, MMG5_pSol sol) {
   MMG5_pTria       pt;
   MMG5_pPoint      p0,p1;
   double           v0,v1,*tmp;
@@ -78,7 +78,7 @@ int MMG2D_snapval_lssurf(MMG5_pMesh mesh, MMG5_pSol sol) {
     if ( !pt->v[0] ) continue;
 
     for (i=0; i<3; i++) {
-      if ( !(pt->tag[i] & MG_BDY) ) continue;
+      if ( !(pt->tag[i] & MG_REF) ) continue;
       i0 = MMG5_inxt2[i];
       i1 = MMG5_inxt2[i0];
 
@@ -126,10 +126,10 @@ int MMG2D_snapval_lssurf(MMG5_pMesh mesh, MMG5_pSol sol) {
  * Reset mesh->info.isoref vertex references to 0.
  *
  */
-int MMG2D_resetRef_lssurf(MMG5_pMesh mesh) {
+int MMG5_resetRef_lssurf(MMG5_pMesh mesh) {
   MMG5_pTria      pt;
   MMG5_pPoint     p0,p1;
-  int             k,ref;
+  MMG5_int        k,ref;
   int8_t          i,i0,i1;
 
   for (k=1; k<=mesh->nt; k++) {
@@ -137,7 +137,7 @@ int MMG2D_resetRef_lssurf(MMG5_pMesh mesh) {
     if ( !pt->v[0] ) continue;
 
     for (i=0; i<3; i++) {
-      if ( !(pt->tag[i] & MG_BDY) ) continue;
+      if ( !(pt->tag[i] & MG_REF) ) continue;
 
       if( !MMG5_getStartRef(mesh,pt->edg[i],&ref) ) return 0;
       pt->edg[i] = ref;
@@ -157,11 +157,11 @@ int MMG2D_resetRef_lssurf(MMG5_pMesh mesh) {
 }
 
 /* Set references to the new triangles */
-int MMG2D_setref_lssurf(MMG5_pMesh mesh, MMG5_pSol sol){
+int MMG5_setref_lssurf(MMG5_pMesh mesh, MMG5_pSol sol){
   MMG5_pTria     pt;
   double         v,v1;
-  int            k,ier,ip1,ref,refint,refext;
-  int8_t         i,i1,i2,j,nmn,npl,nz;
+  MMG5_int       k,ip1,ref,refint,refext;
+  int8_t         ier,i,i1,j,nmn,npl,nz;
 
   /* Travel all surface edges (via triangles) */
   for(k=1; k<=mesh->nt; k++) {
@@ -169,7 +169,7 @@ int MMG2D_setref_lssurf(MMG5_pMesh mesh, MMG5_pSol sol){
     if ( !MG_EOK(pt) ) continue;
 
     for (i=0; i<3; i++) {
-      if ( !(pt->tag[i] & MG_BDY) ) continue;
+      if ( !(pt->tag[i] & MG_REF) ) continue;
       ref = pt->edg[i];
       nmn = npl = nz = 0;
 
