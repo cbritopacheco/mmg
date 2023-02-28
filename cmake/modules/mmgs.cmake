@@ -39,11 +39,13 @@ FILE(MAKE_DIRECTORY ${MMGS_BINARY_DIR})
 #####
 ############################################################################
 
-GENERATE_FORTRAN_HEADER ( mmgs
-  ${MMGS_SOURCE_DIR} libmmgs.h
-  ${MMGS_SHRT_INCLUDE}
-  ${MMGS_BINARY_DIR} libmmgsf.h
-  )
+if (PERL_FOUND)
+  GENERATE_FORTRAN_HEADER ( mmgs
+    ${MMGS_SOURCE_DIR} libmmgs.h
+    mmg/common
+    ${MMGS_BINARY_DIR} libmmgsf.h
+    )
+endif (PERL_FOUND)
 
 ###############################################################################
 #####
@@ -56,26 +58,26 @@ FILE(
   GLOB
   mmgs_library_files
   ${MMGS_SOURCE_DIR}/*.c
-  ${COMMON_SOURCE_DIR}/*.c
+  ${MMGCOMMON_SOURCE_DIR}/*.c
   ${MMGS_SOURCE_DIR}/*.h
-  ${COMMON_SOURCE_DIR}/*.h
+  ${MMGCOMMON_SOURCE_DIR}/*.h
   ${MMGS_SOURCE_DIR}/inoutcpp_s.cpp
   )
 LIST(REMOVE_ITEM mmgs_library_files
   ${MMGS_SOURCE_DIR}/mmgs.c
-  ${COMMON_SOURCE_DIR}/apptools.c
+  ${MMGCOMMON_SOURCE_DIR}/apptools.c
   ${REMOVE_FILE} )
 
 IF ( VTK_FOUND )
   LIST(APPEND  mmgs_library_files
-   ${COMMON_SOURCE_DIR}/vtkparser.cpp )
+   ${MMGCOMMON_SOURCE_DIR}/vtkparser.cpp )
 ENDIF ( )
 
 FILE(
   GLOB
   mmgs_main_file
   ${MMGS_SOURCE_DIR}/mmgs.c
-  ${COMMON_SOURCE_DIR}/apptools.c
+  ${MMGCOMMON_SOURCE_DIR}/apptools.c
   )
 
 ############################################################################
@@ -97,18 +99,27 @@ IF ( LIBMMGS_SHARED )
 ENDIF()
 
 # mmgs header files needed for library
+#
+# Remark: header installation would need to be cleaned, for now, to allow
+# independent build of each project and because mmgs and mmg2d have been added
+# to mmg3d without rethinking the install architecture, the header files that
+# are common between codes are copied in all include directories (mmg/,
+# mmg/mmg3d/, mmg/mmgs/, mmg/mmg2d/).  they are also copied in build directory
+# to enable library call without installation.
 SET( mmgs_headers
   ${MMGS_SOURCE_DIR}/mmgs_export.h
   ${MMGS_SOURCE_DIR}/libmmgs.h
-  ${MMGS_BINARY_DIR}/libmmgsf.h
-  ${COMMON_SOURCE_DIR}/mmg_export.h
-  ${COMMON_SOURCE_DIR}/libmmgtypes.h
-  ${COMMON_BINARY_DIR}/libmmgtypesf.h
-  ${COMMON_BINARY_DIR}/mmgcmakedefines.h
-  ${COMMON_BINARY_DIR}/mmgversion.h
   )
-IF (NOT WIN32 OR MINGW)
-  LIST(APPEND mmgs_headers  ${COMMON_BINARY_DIR}/git_log_mmg.h )
+
+IF ( PERL_FOUND )
+  LIST ( APPEND mmgs_headers   ${MMGS_BINARY_DIR}/libmmgsf.h )
+ENDIF()
+
+IF ( MMG_INSTALL_PRIVATE_HEADERS )
+  LIST ( APPEND mmgs_headers
+    ${MMGS_SOURCE_DIR}/libmmgs_private.h
+    ${MMGS_SOURCE_DIR}/mmgsexterns_private.h
+    )
 ENDIF()
 
 # install man pages
@@ -154,8 +165,8 @@ IF ( BUILD_TESTING )
   # Add runtime that we want to test for mmgs
   IF( MMGS_CI )
 
-    ADD_EXEC_TO_CI_TESTS ( ${PROJECT_NAME}s EXECUT_MMGS )
-    SET ( LISTEXEC_MMG ${EXECUT_MMGS} )
+    SET ( EXECUT_MMGS      $<TARGET_FILE:${PROJECT_NAME}s> )
+    SET ( SHRT_EXECUT_MMGS ${PROJECT_NAME}s)
 
     IF ( ONLY_VERY_SHORT_TESTS )
       # Add tests that doesn't require to download meshes

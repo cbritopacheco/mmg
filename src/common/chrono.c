@@ -37,7 +37,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "chrono.h"
+#include "chrono_private.h"
 
 /**
  * \fn void  chrono(int cmode,mytime *ptt)
@@ -139,7 +139,7 @@ void  tminit(mytime *t,int maxtim) {
   }
 }
 
-#ifdef MMG_DIFFOUTPUT
+#ifdef MMG_COMPARABLE_OUTPUT
 /**
  * \fn void  printim(double elps,char *stim)
  * \brief Print real time.

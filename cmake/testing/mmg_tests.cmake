@@ -24,6 +24,7 @@
 # executable is in EXECUT_MMG3D (filled by mmg3d.cmake) and the mmgs executable
 # is in EXECUTE_MMGS (filled by mmgs.cmake))
 SET(EXECUT_MMG ${EXECUT_MMGS} ${EXECUT_MMG3D})
+SET(SHRT_EXECUT_MMG ${SHRT_EXECUT_MMGS} ${SHRT_EXECUT_MMG3D})
 
 # Make some files not openable
 IF ( EXISTS ${CTEST_OUTPUT_DIR}/unwrittable7.meshb
@@ -43,8 +44,7 @@ IF ( NOT EXISTS ${CTEST_OUTPUT_DIR}/unwrittable8.sol)
 ENDIF()
 
 # Lists of tests that are common to mmgs and mmg3d
-FOREACH(EXEC ${EXECUT_MMG})
-  GET_FILENAME_COMPONENT ( SHRT_EXEC ${EXEC} NAME )
+FOREACH(EXEC SHRT_EXEC IN ZIP_LISTS EXECUT_MMG SHRT_EXECUT_MMG)
 
   ###############################################################################
   #####
@@ -288,6 +288,19 @@ ADD_TEST(NAME mmg_hsizAni_${SHRT_EXEC}
   ${MMG_CI_TESTS}/TorusholesAni_chocCyl/torusholesTiny
   -out ${CTEST_OUTPUT_DIR}/mmg_hsizAni_${SHRT_EXEC}.o.meshb)
 
+# optim + Ani + orphan + unused point
+ADD_TEST(NAME mmg_sphere-optimAni_${SHRT_EXEC}
+  COMMAND ${EXEC} -v 5 ${common_args}
+  ${MMG_CI_TESTS}/SphereVolAni/sphere3 -sol 2 -optim -A -v 5
+  -out ${CTEST_OUTPUT_DIR}/mmg_sphere-optimAni_${SHRT_EXEC}-sphere-optimAni.o.meshb)
+
+# optim + Iso + orphan + unused point
+ADD_TEST(NAME mmg_sphere-optim_${SHRT_EXEC}
+  COMMAND ${EXEC} -v 5 ${common_args}
+  ${MMG_CI_TESTS}/SphereVolAni/sphere3 -sol 2 -optim -v 5
+  -out ${CTEST_OUTPUT_DIR}/mmg_sphere-optim_${SHRT_EXEC}-sphere-optim.o.meshb)
+
+
 ADD_TEST(NAME mmg_hsizHmax_${SHRT_EXEC}
   COMMAND ${EXEC} -v 5 -hsiz 0.1 -hmax 0.05 ${common_args}
   ${MMG_CI_TESTS}/Cube/cube
@@ -352,6 +365,27 @@ ADD_TEST(NAME mmg_CommandLineAni_${SHRT_EXEC}
     ${MMG_CI_TESTS}/c1/c1.meshb
     -out ${CTEST_OUTPUT_DIR}/mmg_nreg_${SHRT_EXEC}.o.meshb)
 
+  # xreg
+  ADD_TEST( NAME mmg_CoorRegularizationCube_${SHRT_EXEC}
+    COMMAND ${EXEC} -v 5 -nr -xreg
+    ${MMG_CI_TESTS}/CoorRegularizationCube/cube
+    -out ${CTEST_OUTPUT_DIR}/CoorRegularizationCube_${SHRT_EXEC}.o.meshb)
+
+  ADD_TEST( NAME mmg_CoorRegularizationRandomCube_${SHRT_EXEC}
+    COMMAND ${EXEC} -v 5 -xreg
+    ${MMG_CI_TESTS}/CoorRegularizationRandomCube/cubeRandom.mesh
+    -out ${CTEST_OUTPUT_DIR}/CoorRegularizationRandomCube_${SHRT_EXEC}.o.meshb)
+
+  # -lssurf
+  IF ( ${SHRT_EXEC} MATCHES "3d" )
+    SET ( ADD_ARG "-opnbdy" )
+  ENDIF()
+  ADD_TEST(NAME mmg_OptLsSurf_peninsula_${SHRT_EXEC}
+    COMMAND ${EXEC} -v 5 ${ADD_ARG} -lssurf -nr -hgrad 1.5 -hausd 0.02
+    -in ${MMG_CI_TESTS}/OptLsSurf_peninsula/peninsula
+    -sol  ${MMG_CI_TESTS}/OptLsSurf_peninsula/ls.sol
+    -out ${CTEST_OUTPUT_DIR}/mmg_OptLsSurf_peninsula_${SHRT_EXEC}.o.meshb)
+
   ##############################################################################
   #####
   #####         Various test cases
@@ -370,5 +404,12 @@ ADD_TEST(NAME mmg_CommandLineAni_${SHRT_EXEC}
     ${MMG_CI_TESTS}/SurfEdges_house/housebad.meshb
     -out ${CTEST_OUTPUT_DIR}/mmg_SurfEdges_${SHRT_EXEC}.o.meshb)
 
+  # test robustness of optim + aniso mode
+  ADD_TEST(NAME mmg_SurfEdges_OptimAni_${SHRT_EXEC}
+    COMMAND ${EXEC} -v 5 -hgrad -1 -optim -A -noinsert -noswap -nomove -nosizreq -hgradreq -1
+    ${MMG_CI_TESTS}/SurfEdges_house/housebad.meshb
+    -out ${CTEST_OUTPUT_DIR}/mmg_SurfEdges_OptimAni_${SHRT_EXEC}.o.meshb)
 
-ENDFOREACH(EXEC)
+
+
+ENDFOREACH()
