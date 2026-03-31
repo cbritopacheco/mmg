@@ -125,6 +125,7 @@ extern "C" {
 #define MMG5_LAG         -1 /**< default value for lagrangian option */
 #define MMG5_NR          -1 /**< no ridge detection */
 #define MMG5_LS         0.0 /**< default level-set to discretize */
+#define MMG5_XREG       0.4 /**< default relaxation parameter for coordinate regularization */
 #define MMG5_PROCTREE    32 /**< default size of the PROctree */
 #define MMG5_OFF          0 /**< 0 */
 #define MMG5_ON           1 /**< 1 */
@@ -152,7 +153,8 @@ extern "C" {
 #define  MG_OLDPARBDY (1 << 11)       /**< 2048 old parallel boundary */
 #define  MG_PARBDYBDY (1 << 12)       /**< 4096 parallel boundary over a boundary */
 #define  MG_PARBDY    (1 << 13)       /**< 8192 parallel boundary */
-#define  MG_NUL       (1 << 14)       /**< 16384 vertex removed */
+#define  MG_OVERLAP   (1 << 14)       /**< 16384 elements on overlap */
+#define  MG_NUL       (1 << 15)       /**< 32768 vertex removed */
 
 /* binary tags for local parameters */
 #define  MG_Vert   (1 << 0 )  /**< 1 local parameter applied over vertex */
@@ -675,7 +677,7 @@ typedef struct MMG5_iNode_s {
  MMG5_int      MMG5_hashFace(MMG5_pMesh,MMG5_Hash*,MMG5_int,MMG5_int,MMG5_int,MMG5_int);
  int           MMG5_hashEdge(MMG5_pMesh mesh,MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int k);
  int           MMG5_hashUpdate(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int k);
- int           MMG5_hashEdgeTag(MMG5_pMesh mesh,MMG5_Hash *hash,MMG5_int a,MMG5_int b,int16_t k);
+ int           MMG5_hashEdgeTag(MMG5_pMesh mesh,MMG5_Hash *hash,MMG5_int a,MMG5_int b,uint16_t k);
  MMG5_int      MMG5_hashGet(MMG5_Hash *hash,MMG5_int a,MMG5_int b);
  int           MMG5_hashNew(MMG5_pMesh mesh, MMG5_Hash *hash,MMG5_int hsiz,MMG5_int hmax);
  int           MMG5_intmetsavedir(MMG5_pMesh mesh, double *m,double *n,double *mr);

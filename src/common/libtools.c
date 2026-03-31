@@ -35,7 +35,7 @@
 #include "mmgcommon_private.h"
 
 /**
- * \param mesh pointer toward the mesh
+ * \param mesh pointer to the mesh
  * \param dim string dontaining the dimension (3D,2D or S)
  *
  * Print MMG release and date
@@ -61,7 +61,7 @@ void MMG5_version(MMG5_pMesh mesh,char *dim) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param mesh pointer to the mesh structure.
  * \return 0 if fail, 1 if success.
  *
  * Print the default parameters values.
@@ -97,6 +97,8 @@ void MMG5_mmgDefaultValues(MMG5_pMesh mesh) {
 
   fprintf(stdout,"gradation control for required entities (-hgradreq)  : %lf\n",
           (mesh->info.hgradreq < 0) ? mesh->info.hgradreq : exp(mesh->info.hgradreq) );
+  fprintf(stdout,"coordinate regularization parameter (-xreg) : %lf\n",
+          mesh->info.lxreg);
 }
 
 int MMG5_Set_multiMat(MMG5_pMesh mesh,MMG5_pSol sol,MMG5_int ref,
@@ -202,7 +204,7 @@ int MMG5_Set_lsBaseReference(MMG5_pMesh mesh,MMG5_pSol sol,MMG5_int br) {
 
 
 /**
- * \param *prog pointer toward the program name.
+ * \param *prog pointer to the program name.
  *
  * Print help for common options of the 3 codes (first section).
  *
@@ -224,6 +226,7 @@ void MMG5_mmgUsage(char *prog) {
   fprintf(stdout,"-out file  output triangulation\n");
   fprintf(stdout,"-sol file  load solution or metric file\n");
   fprintf(stdout,"-met file  load metric file\n");
+  fprintf(stdout,"-f   file  load parameter file\n");
 
   fprintf(stdout,"\n**  Mode specifications (mesh adaptation by default)\n");
   fprintf(stdout,"-ls     val create mesh of isovalue val (0 if no argument provided)\n");
@@ -308,8 +311,8 @@ void MMG5_advancedUsage(void) {
 }
 
 /**
- * \param mesh pointer toward mesh
- * \param pa pointer toward edge
+ * \param mesh pointer to mesh
+ * \param pa pointer to edge
  *
  * Clean tags linked to iso surface discretization (MG_CRN, MG_ISO) along edge.
  *
@@ -332,8 +335,8 @@ void MMG5_Clean_isoTags(MMG5_pMesh mesh,MMG5_pEdge pa) {
 }
 
 /**
-  * \param mesh pointer toward mesh
-  * \param pa pointer toward mesh edge
+  * \param mesh pointer to mesh
+  * \param pa pointer to mesh edge
   *
   * \return 1 if edge should be removed when cleaning old iso surface, 0 otherwise.
   *
@@ -357,7 +360,7 @@ int8_t MMG5_should_edge_be_removed(MMG5_pMesh mesh,MMG5_pEdge pa){
 }
 
 /**
- * \param mesh pointer toward mesh
+ * \param mesh pointer to mesh
  * \param return 1 if successful, 0 if fail
  *
  * Clean edges belonging to isosurf, except for ridges.

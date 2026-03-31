@@ -43,7 +43,7 @@
 #include "mmgcommon_private.h"
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param mesh pointer to the mesh structure.
  *
  * Initialization of the input parameters.
  *
@@ -57,6 +57,8 @@ void MMG5_Init_parameters(MMG5_pMesh mesh) {
   mesh->info.imprim   =  1;
   /* [0/1]    ,Turn on/off levelset meshing */
   mesh->info.iso      =  MMG5_OFF;
+  /* [0/1]    ,Turn on/off levelset meshing */
+  mesh->info.isosurf  =  MMG5_OFF;
   /* [n/10]   ,Value for isosurface boundary reference */
   mesh->info.isoref   =  MG_ISO;
   /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
@@ -94,6 +96,8 @@ void MMG5_Init_parameters(MMG5_pMesh mesh) {
   mesh->info.hgrad    = MMG5_HGRAD;
   /* control gradation on required entities */
   mesh->info.hgradreq = MMG5_HGRADREQ;
+  /* xreg relaxation parameter value */
+  mesh->info.lxreg    = MMG5_XREG;
 
   /* default values for pointers */
   /* list of user-defined references */
@@ -119,8 +123,8 @@ void MMG5_Init_parameters(MMG5_pMesh mesh) {
 
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param sol pointer toward the sol structure.
+ * \param mesh pointer to the mesh structure.
+ * \param sol pointer to the sol structure.
  *
  * Initialize file names to their default values.
  *
@@ -139,7 +143,7 @@ void MMG5_Init_fileNames(MMG5_pMesh mesh,MMG5_pSol sol
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param mesh pointer to the mesh structure.
  * \param meshin input mesh name.
  * \return 1 if success, 0 if fail
  *
@@ -174,8 +178,8 @@ int MMG5_Set_inputMeshName(MMG5_pMesh mesh, const char* meshin) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param sol pointer toward the sol structure.
+ * \param mesh pointer to the mesh structure.
+ * \param sol pointer to the sol structure.
  * \param solin name of the input solution file.
  * \return 1 if success, 0 if fail
  *
@@ -200,16 +204,24 @@ int MMG5_Set_inputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solin) {
       int mesh_len = strlen(mesh->namein)+1;
       MMG5_SAFE_CALLOC(sol->namein,mesh_len,char,return 0);
       strcpy(sol->namein,mesh->namein);
-      ptr = strstr(sol->namein,".mesh");
-      if ( ptr ) {
-        /* the sol file is renamed with the meshfile without extension */
-        *ptr = '\0';
-        MMG5_SAFE_REALLOC(sol->namein,mesh_len,(strlen(sol->namein)+1),char,
-                           "input sol name",return 0);
+
+      /* Get last dot character to avoid issues with <basename>.mesh.mesh files */
+      char *dot = strrchr(sol->namein,'.');
+      ptr = NULL;
+      if ( dot) {
+        ptr = strstr(dot,".mesh");
       }
-      MMG5_ADD_MEM(mesh,(strlen(sol->namein)+1)*sizeof(char),"input sol name",
+      if ( ptr ) {
+        /* the sol file is renamed concatening the mesh basename and the sol extension */
+        *ptr = '\0';
+      }
+      MMG5_SAFE_REALLOC(sol->namein,mesh_len,(strlen(sol->namein)+5),char,
+                        "input sol name",return 0);
+
+      MMG5_ADD_MEM(mesh,(strlen(sol->namein)+5)*sizeof(char),"input sol name",
                     fprintf(stderr,"  Exit program.\n");
                     return 0);
+      strcat(sol->namein,".sol");
     }
     else {
       MMG5_ADD_MEM(mesh,9*sizeof(char),"input sol name",
@@ -223,7 +235,35 @@ int MMG5_Set_inputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solin) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param mesh pointer to the mesh structure.
+ * \param fparamin name of the input solution file.
+ * \return 1 if success, 0 if fail
+ *
+ * Set the name of input parameter file.
+ *
+ */
+int MMG5_Set_inputParamName(MMG5_pMesh mesh, const char* fparamin) {
+
+  if ( mesh->info.fparam )
+    MMG5_DEL_MEM(mesh,mesh->info.fparam);
+
+  if ( fparamin && strlen(fparamin) ) {
+    MMG5_ADD_MEM(mesh,(strlen(fparamin)+1)*sizeof(char),"input param name",
+                  fprintf(stderr,"  Exit program.\n");
+                  return 0);
+    MMG5_SAFE_CALLOC(mesh->info.fparam,strlen(fparamin)+1,char,return 0);
+    strcpy(mesh->info.fparam,fparamin);
+  }
+  else {
+    fprintf(stderr,"\n  ## Warning: %s: no name given for the parameter file.\n",__func__);
+    fprintf(stderr,"              We should have never end here.\n");
+    return 0;
+  }
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the mesh structure.
  * \param meshout name of the output mesh file.
  * \return 1 if success, 0 if fail.
  *
@@ -337,8 +377,8 @@ int MMG5_Set_outputMeshName(MMG5_pMesh mesh, const char* meshout) {
 
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param sol pointer toward the sol structure.
+ * \param mesh pointer to the mesh structure.
+ * \param sol pointer to the sol structure.
  * \param solout name of the output solution file.
  * \return 0 if failed, 1 otherwise.
  *
@@ -361,7 +401,12 @@ int MMG5_Set_outputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solout) {
   }
   else {
     if ( mesh->nameout && strlen(mesh->nameout) ) {
-      ptr = strstr(mesh->nameout,".mesh");
+      /* Get last dot character to avoid issues with <basename>.mesh.mesh files */
+      char *dot = strrchr(mesh->nameout,'.');
+      ptr = NULL;
+      if ( dot) {
+        ptr = strstr(dot,".mesh");
+      }
       if ( ptr ) {
         MMG5_SAFE_CALLOC(sol->nameout,strlen(mesh->nameout)+1,char,return 0);
         oldsize = strlen(mesh->nameout)+1;
@@ -371,16 +416,22 @@ int MMG5_Set_outputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solout) {
         oldsize = strlen(mesh->nameout)+6;
       }
       strcpy(sol->nameout,mesh->nameout);
-      ptr = strstr(sol->nameout,".mesh");
+      dot = strrchr(sol->nameout,'.');
+      ptr = NULL;
+      if ( dot) {
+        ptr = strstr(dot,".mesh");
+      }
       if ( ptr )
-        /* the sol file is renamed with the meshfile without extension */
+        /* the sol file is renamed with the meshfile basename and .sol ext */
         *ptr = '\0';
-      strcat(sol->nameout,".sol");
-      MMG5_ADD_MEM(mesh,(strlen(sol->nameout)+1)*sizeof(char),"output sol name",
+
+      MMG5_ADD_MEM(mesh,(strlen(sol->nameout)+5)*sizeof(char),"output sol name",
                     fprintf(stderr,"  Exit program.\n");
                     return 0);
-      MMG5_SAFE_REALLOC(sol->nameout,oldsize,(strlen(sol->nameout)+1),char,
+      MMG5_SAFE_REALLOC(sol->nameout,oldsize,(strlen(sol->nameout)+5),char,
                          "output sol name",return 0);
+      strcat(sol->nameout,".sol");
+
     }
     else {
       fprintf(stderr,"\n  ## Error: %s: no name for output mesh. please, use",
@@ -453,8 +504,8 @@ int MMG5_Free_allSols(MMG5_pMesh mesh,MMG5_pSol *sol) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param sol pointer toward the sol structure.
+ * \param mesh pointer to the mesh structure.
+ * \param sol pointer to the sol structure.
  *
  * Structures unallocation before return (common structures between all codes).
  *
@@ -502,8 +553,8 @@ void MMG5_Free_structures(MMG5_pMesh mesh,MMG5_pSol sol){
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param met pointer toward the sol structure.
+ * \param mesh pointer to the mesh structure.
+ * \param met pointer to the sol structure.
  *
  * File name deallocations before return.
  *
@@ -683,7 +734,7 @@ const char* MMG5_Get_typeName(enum MMG5_type typ)
   }
 }
 
-const char* MMG5_Get_tagName(int tag)
+const char* MMG5_Get_tagName(uint16_t tag)
 {
   static char tags_name[1024];
 
@@ -740,14 +791,19 @@ const char* MMG5_Get_tagName(int tag)
 
   if ( tag & MG_PARBDY) {
     strcat(tags_name,"Parbdy ");
-    }
+  }
+
+  if ( tag & MG_OVERLAP) {
+    strcat(tags_name,"Overlap ");
+  }
+
   strcat(tags_name,"tag(s).");
 
   return tags_name;
 }
 
 /**
- * \param ptr pointer toward the file extension (dot included)
+ * \param ptr pointer to the file extension (dot included)
  * \param fmt default file format.
  *
  * \return and index associated to the file format detected from the extension.
@@ -847,7 +903,7 @@ const char* MMG5_Get_formatName(enum MMG5_Format fmt)
 /**
  * \param filename string containing a filename
  *
- * \return pointer toward the filename extension or toward the end of the string
+ * \return pointer to the filename extension or toward the end of the string
  * if no extension have been founded
  *
  * Get the extension of the filename string. Do not consider '.o' as an extension.
@@ -875,7 +931,7 @@ char *MMG5_Get_filenameExt( char *filename ) {
 /**
  * \param path string containing a filename and its path
  *
- * \return a pointer toward the path allocated here
+ * \return a pointer to the path allocated here
  *
  * Remove filename from a path and return the path in a newly allocated string.
  *

@@ -262,7 +262,6 @@ IF ( LONG_TESTS )
 
   ADD_TEST(NAME ${test_name}
     COMMAND ${EXECUT_MMG3D}
-    ${input_file}
     ### M6
     ${input_file}
     -v 5 -sol ${MMG3D_CI_TESTS}/Various_adpsol_hgrad1_M6Mach_Eps0.0005_hmin0.0001_hmax3/metM6.sol -hausd 0.1 -ar 60
@@ -540,6 +539,11 @@ ADD_TEST(NAME mmg3d_opnbdy_ref_island
   -in ${MMG3D_CI_TESTS}/OpnBdy_island/island
   -out ${CTEST_OUTPUT_DIR}/mmg3d_OpnBdy_island.o.meshb)
 
+ADD_TEST(NAME mmg3d_duplicate_triangle
+COMMAND ${EXECUT_MMG3D} -v 5
+-in ${MMG3D_CI_TESTS}/DuplicateTriangle/duplicate_triangle
+-out ${CTEST_OUTPUT_DIR}/duplicate-triangle.o.meshb)
+
 ###############################################################################
 #####
 #####         Check Lagrangian motion option
@@ -572,6 +576,12 @@ IF ( ELAS_FOUND AND NOT USE_ELAS MATCHES OFF )
     -sol ${MMG3D_CI_TESTS}/LagMotion1_tinyBoxt/tinyBoxt.sol
     -out ${CTEST_OUTPUT_DIR}/mmg3d_LagMotion2_tinyBoxt-nsd3.o.meshb
     )
+
+  IF (${MMG5_INT} MATCHES int64_t )
+    SET(passElasRegex "## Error: MMG5_velextLS: impossible to call elasticity library with int64 integers")
+    SET_PROPERTY(TEST mmg3d_LagMotion0_tinyBoxt mmg3d_LagMotion1_tinyBoxt mmg3d_LagMotion2_tinyBoxt mmg3d_LagMotion2_tinyBoxt-nsd3
+      PROPERTY PASS_REGULAR_EXPRESSION "${passElasRegex}")
+  ENDIF()
 
 ENDIF()
 
@@ -639,6 +649,41 @@ ADD_TEST(NAME mmg3d_LSMultiMat
   ${MMG3D_CI_TESTS}/LSMultiMat/step.0.mesh
   -sol ${MMG3D_CI_TESTS}/LSMultiMat/step.0.phi.sol
   ${CTEST_OUTPUT_DIR}/mmg3d_LSMultiMat.o.meshb)
+
+# ls discretisation + parameter file
+ADD_TEST(NAME mmg3d_ParsOpName
+  COMMAND ${EXECUT_MMG3D} -v 5 -ls -nr
+  -f ${MMG3D_CI_TESTS}/LSMultiMat/step.0-refs.mmg3d
+  -sol ${MMG3D_CI_TESTS}/LSMultiMat/step.0.phi.sol
+  ${MMG3D_CI_TESTS}/LSMultiMat/step.0.mesh
+  ${CTEST_OUTPUT_DIR}/mmg3d_ParsOpName.o.meshb)
+
+SET(parsopName "step.0-refs.mmg3d OPENED")
+SET_PROPERTY(TEST mmg3d_ParsOpName
+  PROPERTY PASS_REGULAR_EXPRESSION "${parsopName}")
+
+# ls discretisation + wrong name of parameter file
+ADD_TEST(NAME mmg3d_ParsOpName_wrongFile
+  COMMAND ${EXECUT_MMG3D} -v 5 -ls -nr
+  -f ${MMG3D_CI_TESTS}/LSMultiMat/step.0-false.mmg3d
+  -sol ${MMG3D_CI_TESTS}/LSMultiMat/step.0.phi.sol
+  ${MMG3D_CI_TESTS}/LSMultiMat/step.0.mesh
+  ${CTEST_OUTPUT_DIR}/mmg3d_ParsOpName_wrongFile.o.meshb)
+
+SET(parsopNameWrong "step.0-false.mmg3d file NOT FOUND.")
+SET_PROPERTY(TEST mmg3d_ParsOpName_wrongFile
+  PROPERTY PASS_REGULAR_EXPRESSION "${parsopNameWrong}")
+
+# ls discretisation + no name of parameter file
+ADD_TEST(NAME mmg3d_ParsOpName_NoFileName
+  COMMAND ${EXECUT_MMG3D} -v 5 -f -ls
+  -sol ${MMG3D_CI_TESTS}/LSMultiMat/step.0.phi.sol
+  ${MMG3D_CI_TESTS}/LSMultiMat/step.0.mesh
+  ${CTEST_OUTPUT_DIR}/mmg3d_ParsOpName_NoFileName.o.meshb)
+
+SET(parsopNameNo "Missing filename for -f")
+SET_PROPERTY(TEST mmg3d_ParsOpName_NoFileName
+  PROPERTY PASS_REGULAR_EXPRESSION "${parsopNameNo}")
 
 #multi-mat + opnbdy + non-manifold check
 ADD_TEST(NAME mmg3d_LSMultiMat_nm
@@ -858,8 +903,11 @@ IF ( LONG_TESTS )
       -sol ${MMG3D_CI_TESTS}/LagMotion1_boxt/boxt.sol
       -out ${CTEST_OUTPUT_DIR}/mmg3d_LagMotion2_boxt-boxt.o.meshb
       )
+    IF (${MMG5_INT} MATCHES int64_t )
+      SET_PROPERTY(TEST mmg3d_LagMotion0_boxt mmg3d_LagMotion1_boxt mmg3d_LagMotion2_boxt
+      PROPERTY PASS_REGULAR_EXPRESSION "${passElasRegex}")
+    ENDIF()
   ENDIF()
-
 ENDIF()
 
 ###############################################################################

@@ -68,6 +68,10 @@ int MMG2D_Set_inputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solin) {
   return MMG5_Set_inputSolName(mesh,sol,solin);
 }
 
+int MMG2D_Set_inputParamName(MMG5_pMesh mesh, const char* fparamin) {
+  return MMG5_Set_inputParamName(mesh,fparamin);
+}
+
 int MMG2D_Set_outputMeshName(MMG5_pMesh mesh, const char* meshout) {
 
   return MMG5_Set_outputMeshName(mesh,meshout);
@@ -97,6 +101,8 @@ void MMG2D_Init_parameters(MMG5_pMesh mesh) {
   /* default values for doubles */
   /* level set value */
   mesh->info.ls       = MMG5_LS;
+/* xreg relaxation parameter value */
+  mesh->info.lxreg    = MMG5_XREG;
 
   /* Ridge detection */
   mesh->info.dhd      = MMG5_ANGEDG;
@@ -219,9 +225,11 @@ int MMG2D_Set_iparameter(MMG5_pMesh mesh, MMG5_pSol sol, int iparam, MMG5_int va
                   return 0);
     MMG5_SAFE_CALLOC(mesh->info.par,mesh->info.npar,MMG5_Par,return 0);
 
+    MMG5_int inival = MMG5_INTMAX;
+
     for (k=0; k<mesh->info.npar; k++) {
       mesh->info.par[k].elt   = MMG5_Noentity;
-      mesh->info.par[k].ref   = INT_MAX;
+      mesh->info.par[k].ref   = inival;
       mesh->info.par[k].hausd = mesh->info.hausd;
       mesh->info.par[k].hmin  = mesh->info.hmin;
       mesh->info.par[k].hmax  = mesh->info.hmax;
@@ -343,6 +351,13 @@ int MMG2D_Set_dparameter(MMG5_pMesh mesh, MMG5_pSol sol, int dparam, double val)
     break;
   case MMG2D_DPARAM_ls :
     mesh->info.ls       = val;
+    break;
+  case MMG2D_DPARAM_xreg :
+    if (val < 0.0 || val > 1.0) {
+      fprintf(stderr,"\n  ## Error: %s: Coordinate regularization parameter must be comprised between 0 and 1.\n",__func__);
+    }
+    else
+      mesh->info.lxreg    = val;
     break;
   case MMG2D_DPARAM_rmc :
     if ( !val ) {
@@ -1016,8 +1031,8 @@ int  MMG2D_Set_triangles(MMG5_pMesh mesh, MMG5_int *tria, MMG5_int *refs) {
     j = (i-1)*3;
     ptt = &mesh->tria[i];
     ptt->v[0] = tria[j]  ;
-    ptt->v[1] = tria[j+2];
-    ptt->v[2] = tria[j+1];
+    ptt->v[1] = tria[j+1];
+    ptt->v[2] = tria[j+2];
     if ( refs != NULL )
       ptt->ref  = refs[i-1];
 

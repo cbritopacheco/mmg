@@ -44,7 +44,16 @@ IF ( NOT EXISTS ${CTEST_OUTPUT_DIR}/unwrittable8.sol)
 ENDIF()
 
 # Lists of tests that are common to mmgs and mmg3d
-FOREACH(EXEC SHRT_EXEC IN ZIP_LISTS EXECUT_MMG SHRT_EXECUT_MMG)
+## ZIP_LISTS keyword is supported since version 3.17 of CMake not yet
+## distributed by Ubuntu's APT
+## FOREACH(EXEC SHRT_EXEC IN ZIP_LISTS EXECUT_MMG SHRT_EXECUT_MMG)
+
+LIST(LENGTH EXECUT_MMG len)
+MATH(EXPR len "${len} - 1")
+
+FOREACH ( it RANGE ${len} )
+  LIST(GET EXECUT_MMG ${it} EXEC )
+  LIST(GET SHRT_EXECUT_MMG ${it} SHRT_EXEC)
 
   ###############################################################################
   #####
@@ -376,6 +385,11 @@ ADD_TEST(NAME mmg_CommandLineAni_${SHRT_EXEC}
     ${MMG_CI_TESTS}/CoorRegularizationRandomCube/cubeRandom.mesh
     -out ${CTEST_OUTPUT_DIR}/CoorRegularizationRandomCube_${SHRT_EXEC}.o.meshb)
 
+  ADD_TEST( NAME mmg_CoorRegularizationRandomCube_value_${SHRT_EXEC}
+    COMMAND ${EXEC} -v 5 -xreg 0.9
+    ${MMG_CI_TESTS}/CoorRegularizationRandomCube/cubeRandom.mesh
+    -out ${CTEST_OUTPUT_DIR}/CoorRegularizationRandomCube_value_${SHRT_EXEC}.o.meshb)
+
   # -lssurf
   IF ( ${SHRT_EXEC} MATCHES "3d" )
     SET ( ADD_ARG "-opnbdy" )
@@ -410,6 +424,47 @@ ADD_TEST(NAME mmg_CommandLineAni_${SHRT_EXEC}
     ${MMG_CI_TESTS}/SurfEdges_house/housebad.meshb
     -out ${CTEST_OUTPUT_DIR}/mmg_SurfEdges_OptimAni_${SHRT_EXEC}.o.meshb)
 
-
-
 ENDFOREACH()
+
+# Unit tests
+## Really not clean: as the organization of the functions definition in .c files
+## and headers declatation in .h files is very badly done (and has never been
+## cleaned), and we try to test a private function of Mmg, we have to include
+## almost all the .c/.h files to be able to build this unit test.
+##
+## Not built and tested on windows due to unallowed definition of dllimport data
+##
+
+IF ( NOT WIN32 )
+  FILE(
+    GLOB
+    mmg_get_tagname_files
+    ${mmg2d_library_files}
+    ${mmg3d_library_files}
+    ${mmgs_library_files}
+    ${PROJECT_SOURCE_DIR}/cmake/testing/code/mmg_get_tagname.c
+  )
+
+  ADD_EXECUTABLE (  mmg_get_tagname  ${mmg_get_tagname_files} )
+
+  ADD_DEPENDENCIES ( mmg_get_tagname copy_mmgcommon_headers
+    copy_3d_headers copy_2d_headers copy_s_headers )
+
+  TARGET_INCLUDE_DIRECTORIES ( mmg_get_tagname BEFORE PUBLIC
+    ${MMGCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/include
+    ${PROJECT_BINARY_DIR}/src/common
+  )
+  if ( SCOTCH_FOUND AND NOT USE_SCOTCH MATCHES OFF )
+    target_include_directories( mmg_get_tagname BEFORE PUBLIC ${SCOTCH_INCLUDE_DIRS} )
+  ENDIF ( )
+
+  SET( GET_TAGNAME_LIBRARIES ${LIBRARIES} )
+
+  IF( ELAS_FOUND AND NOT USE_ELAS MATCHES OFF )
+    target_include_directories( mmg_get_tagname AFTER PUBLIC ${ELAS_INCLUDE_DIR} )
+    SET( GET_TAGNAME_LIBRARIES ${ELAS_LINK_FLAGS} ${ELAS_LIBRARY} ${GET_TAGNAME_LIBRARIES})
+  ENDIF ( )
+
+  TARGET_LINK_LIBRARIES ( mmg_get_tagname PRIVATE ${GET_TAGNAME_LIBRARIES}  )
+
+ENDIF ( )

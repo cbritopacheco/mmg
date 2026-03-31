@@ -69,6 +69,10 @@ int MMGS_Set_inputSolName(MMG5_pMesh mesh,MMG5_pSol sol, const char* solin) {
   return MMG5_Set_inputSolName(mesh,sol,solin);
 }
 
+int MMGS_Set_inputParamName(MMG5_pMesh mesh, const char* fparamin) {
+  return MMG5_Set_inputParamName(mesh,fparamin);
+}
+
 int MMGS_Set_outputMeshName(MMG5_pMesh mesh, const char* meshout) {
 
   return MMG5_Set_outputMeshName(mesh,meshout);
@@ -539,8 +543,8 @@ int  MMGS_Set_triangles(MMG5_pMesh mesh, MMG5_int *tria, MMG5_int *refs) {
       j = (i-1)*3;
       ptt = &mesh->tria[i];
       ptt->v[0] = tria[j]  ;
-      ptt->v[1] = tria[j+2];
-      ptt->v[2] = tria[j+1];
+      ptt->v[1] = tria[j+1];
+      ptt->v[2] = tria[j+2];
 
       mesh->point[ptt->v[0]].tag &= ~MG_NUL;
       mesh->point[ptt->v[1]].tag &= ~MG_NUL;
@@ -1389,9 +1393,12 @@ int MMGS_Set_iparameter(MMG5_pMesh mesh, MMG5_pSol sol, int iparam, MMG5_int val
                   return 0);
     MMG5_SAFE_CALLOC(mesh->info.par,mesh->info.npar,MMG5_Par,return 0);
 
+    MMG5_int inival;
+    inival = MMG5_INTMAX;
+
     for (k=0; k<mesh->info.npar; k++) {
       mesh->info.par[k].elt   = MMG5_Noentity;
-      mesh->info.par[k].ref   = INT_MAX;
+      mesh->info.par[k].ref   = inival;
       mesh->info.par[k].hausd = mesh->info.hausd;
       mesh->info.par[k].hmin  = mesh->info.hmin;
       mesh->info.par[k].hmax  = mesh->info.hmax;
@@ -1556,6 +1563,13 @@ int MMGS_Set_dparameter(MMG5_pMesh mesh, MMG5_pSol sol, int dparam, double val){
     break;
   case MMGS_DPARAM_ls :
     mesh->info.ls         = val;
+    break;
+  case MMGS_DPARAM_xreg :
+    if (val < 0.0 || val > 1.0) {
+      fprintf(stderr,"\n  ## Error: %s: Coordinate regularization parameter must be comprised between 0 and 1.\n",__func__);
+    }
+    else
+      mesh->info.lxreg    = val;
     break;
   case MMGS_DPARAM_rmc :
     if ( !val ) {

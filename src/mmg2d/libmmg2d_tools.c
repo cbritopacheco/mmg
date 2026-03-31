@@ -101,13 +101,19 @@ int MMG2D_usage(char *name) {
 // In adp mode : -sol or -met or default allow to store the metric.
 int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol sol) {
   MMG5_pSol tmp = NULL;
+  double  val;
   int     i;
-  char    namein[MMG5_FILESTR_LGTH];
+  char    namein[MMG5_FILESTR_LGTH],*endptr;
+  int     param;
 
   /* First step: search if user want to see the default parameters values. */
   for ( i=1; i< argc; ++i ) {
     if ( !strcmp(argv[i],"-val") ) {
       MMG2D_defaultValues(mesh);
+      return 0;
+    }
+    else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
+      MMG2D_usage(argv[0]);
       return 0;
     }
   }
@@ -117,14 +123,25 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch(argv[i][1]) {
-      case '?':
-        MMG2D_usage(argv[0]);
-        return 0;
       case 'a':
-        if ( !strcmp(argv[i],"-ar") && ++i < argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_angleDetection,
-                                     atof(argv[i])) )
+        if ( !strcmp(argv[i],"-ar") ) {
+          if ( i >= argc -1 ) {
+            fprintf(stderr,"\nMissing argument option %s\n",argv[i]);
             return 0;
+          }
+          else {
+            val = strtof(argv[i+1],&endptr);
+            if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+              ++i;
+              if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_angleDetection,val))
+                return 0;
+            }
+            else {
+              /* argument is not a number */
+              fprintf(stderr,"\nMissing argument option %s\n",argv[i]);
+              return 0;
+            }
+          }
         }
         break;
       case 'A': /* anisotropy */
@@ -139,42 +156,65 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
             return 0;
         }
         break;
+      case 'f':
+        if ( !strcmp(argv[i],"-f") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( !MMG2D_Set_inputParamName(mesh,argv[i]) )
+              return 0;
+          }
+          else {
+            fprintf(stderr,"\nMissing filename for %s\n",argv[i-1]);
+            MMG2D_usage(argv[0]);
+            return 0;
+          }
+        }
+        break;
       case 'h':
-        if ( !strcmp(argv[i],"-hmin") && ++i < argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hmin,
-                                     atof(argv[i])) )
-            return 0;
-        }
-        else if ( !strcmp(argv[i],"-hmax") && ++i < argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hmax,
-                                     atof(argv[i])) )
-            return 0;
-        }
-        else if ( !strcmp(argv[i],"-hsiz") && ++i < argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hsiz,
-                                     atof(argv[i])) )
-            return 0;
-
-        }
-        else if ( !strcmp(argv[i],"-hausd") && ++i <= argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hausd,
-                                     atof(argv[i])) )
-            return 0;
-        }
-        else if ( !strcmp(argv[i],"-hgradreq") && ++i <= argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hgradreq,
-                                     atof(argv[i])) )
-            return 0;
-        }
-        else if ( !strcmp(argv[i],"-hgrad") && ++i <= argc ) {
-          if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_hgrad,
-                                     atof(argv[i])) )
-            return 0;
-        }
-        else {
-          MMG2D_usage(argv[0]);
+        param = MMG5_UNSET;
+        if ( i >= argc -1 ) {
+          fprintf(stderr,"\nMissing argument option %s\n",argv[i]);
           return 0;
         }
+        else {
+          if ( !strcmp(argv[i],"-hmin") ) {
+            param = MMG2D_DPARAM_hmin;
+          }
+          else if ( !strcmp(argv[i],"-hmax") ) {
+            param = MMG2D_DPARAM_hmax;
+          }
+          else if ( !strcmp(argv[i],"-hsiz") ) {
+            param = MMG2D_DPARAM_hsiz;
+          }
+          else if ( !strcmp(argv[i],"-hausd") ) {
+            param = MMG2D_DPARAM_hausd;
+          }
+          else if ( !strcmp(argv[i],"-hgradreq") ) {
+            param = MMG2D_DPARAM_hgradreq;
+          }
+          else if ( !strcmp(argv[i],"-hgrad") ) {
+            param = MMG2D_DPARAM_hgrad;
+          }
+          else {
+            /* Arg unknown by Mmg: arg starts with -h but is not known */
+            MMG2D_usage(argv[0]);
+            return 0;
+          }
+
+          assert ( param != MMG5_UNSET );
+
+          val = strtof(argv[i+1],&endptr);
+          if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+            ++i;
+            if ( !MMG2D_Set_dparameter(mesh,met,param,val) ){
+              return 0;
+            }
+          } else {
+            /* argument is not a number */
+            fprintf(stderr,"\nMissing argument option %s\n",argv[i]);
+            return 0;
+          }
+        }
+
         break;
       case 'i':
         if ( !strcmp(argv[i],"-in") ) {
@@ -185,7 +225,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
             if ( !MMG2D_Set_iparameter(mesh,met,MMG2D_IPARAM_verbose,5) )
               return 0;
           }else{
-            fprintf(stderr,"Missing filname for %c%c\n",argv[i-1][1],argv[i-1][2]);
+            fprintf(stderr,"\nMissing filname for %s\n",argv[i]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -206,13 +246,8 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
             if ( !MMG2D_Set_iparameter(mesh,met,MMG2D_IPARAM_lag,atoi(argv[i])) )
               return 0;
           }
-          else if ( i == argc ) {
-            fprintf(stderr,"Missing argument option %s\n",argv[i-1]);
-            MMG2D_usage(argv[0]);
-            return 0;
-          }
           else {
-            fprintf(stderr,"Missing argument option %s\n",argv[i-1]);
+            fprintf(stderr,"\nMissing or unexpected argument option %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -220,29 +255,35 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
         else if ( !strcmp(argv[i],"-ls") ) {
           if ( !MMG2D_Set_iparameter(mesh,met,MMG2D_IPARAM_iso,1) )
             return 0;
-          if ( ++i < argc && (isdigit(argv[i][0]) ||
-                              (argv[i][0]=='-' && isdigit(argv[i][1])) ) ) {
-            if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_ls,atof(argv[i])) )
-              return 0;
+
+          if ( i < argc -1 ) {
+            val = strtof(argv[i+1],&endptr);
+            if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+              ++i;
+              if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_ls,val))
+                return 0;
+            }
           }
-          else i--;
         }
         else if ( !strcmp(argv[i],"-lssurf") ) {
           if ( !MMG2D_Set_iparameter(mesh,met,MMG2D_IPARAM_isosurf,1) )
             return 0;
-          if ( ++i < argc && (isdigit(argv[i][0]) ||
-                              (argv[i][0]=='-' && isdigit(argv[i][1])) ) ) {
-            if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_ls,atof(argv[i])) )
-              return 0;
+
+          if ( i < argc -1 ) {
+            val = strtof(argv[i+1],&endptr);
+            if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+              ++i;
+              if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_ls,val))
+                return 0;
+            }
           }
-          else i--;
         }
         break;
       case 'm':  /* memory */
         if ( !strcmp(argv[i],"-met") ) {
           if ( !met ) {
-            fprintf(stderr,"No metric structure allocated for %c%c%c option\n",
-                    argv[i-1][1],argv[i-1][2],argv[i-1][3]);
+            fprintf(stderr,"\nNo metric structure allocated for %s option\n",
+                    argv[i]);
             return 0;
           }
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
@@ -250,7 +291,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
               return 0;
           }
           else {
-            fprintf(stderr,"Missing filname for %c%c%c\n",argv[i-1][1],argv[i-1][2],argv[i-1][3]);
+            fprintf(stderr,"\nMissing filname for %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -261,7 +302,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
               return 0;
           }
           else {
-            fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+            fprintf(stderr,"\nMissing argument option %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -286,7 +327,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
               return 0;
           }
           else {
-            fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+            fprintf(stderr,"\nMissing argument option %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -318,8 +359,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
             if ( !MMG2D_Set_outputMeshName(mesh,argv[i]) )
               return 0;
           }else{
-            fprintf(stderr,"Missing filname for %c%c%c\n",
-                    argv[i-1][1],argv[i-1][2],argv[i-1][3]);
+            fprintf(stderr,"\nMissing filname for %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -337,11 +377,14 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
         if ( !strcmp(argv[i],"-rmc") ) {
           if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_rmc,0) )
             return 0;
-          if ( ++i < argc && (isdigit(argv[i][0]) ) ) {
-            if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_rmc,atof(argv[i])) )
-              return 0;
+          if ( i < argc -1 ) {
+            val = strtof(argv[i+1],&endptr);
+            if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+              ++i;
+              if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_rmc,val))
+                return 0;
+            }
           }
-          else i--;
         }
         break;
       case 's':
@@ -355,7 +398,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
               return 0;
           }
           else {
-            fprintf(stderr,"Missing filname for %c%c%c\n",argv[i-1][1],argv[i-1][2],argv[i-1][3]);
+            fprintf(stderr,"\nMissing filname for %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
@@ -371,7 +414,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
             i--;
         }
         else {
-          fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+          fprintf(stderr,"\nMissing argument option for %s\n",argv[i-1]);
           MMG2D_usage(argv[0]);
           return 0;
         }
@@ -380,6 +423,14 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
         if ( !strcmp(argv[i],"-xreg") ) {
           if ( !MMG2D_Set_iparameter(mesh,met,MMG2D_IPARAM_xreg,1) )
             return 0;
+          if ( i < argc -1 ) {
+            val = strtof(argv[i+1],&endptr);
+            if ( endptr == &(argv[i+1][strlen(argv[i+1])]) ) {
+              ++i;
+              if ( !MMG2D_Set_dparameter(mesh,met,MMG2D_DPARAM_xreg,val))
+                return 0;
+            }
+          }
         }
         break;
       case '3':
@@ -389,14 +440,14 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
               return 0;
           }
           else {
-            fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+            fprintf(stderr,"\nMissing argument option for %s\n",argv[i-1]);
             MMG2D_usage(argv[0]);
             return 0;
           }
         }
         break;
       default:
-        fprintf(stderr,"Unrecognized option %s\n",argv[i]);
+        fprintf(stderr,"\nUnrecognized option %s\n",argv[i]);
         MMG2D_usage(argv[0]);
         return 0;
       }
@@ -417,7 +468,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
           return 0;
       }
       else {
-        fprintf(stdout,"  Argument %s ignored\n",argv[i]);
+        fprintf(stdout,"\nArgument %s ignored\n",argv[i]);
         MMG2D_usage(argv[0]);
         return 0;
       }
@@ -435,7 +486,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
   }
 
   if ( mesh->namein == NULL ) {
-    fprintf(stdout,"  -- INPUT MESH NAME ?\n");
+    fprintf(stdout,"\n  -- INPUT MESH NAME ?\n");
     fflush(stdin);
     MMG_FSCANF(stdin,"%127s",namein);
     if ( !MMG2D_Set_inputMeshName(mesh,namein) )
@@ -470,7 +521,7 @@ int MMG2D_parsar(int argc,char *argv[],MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol s
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param mesh pointer to the mesh structure.
  * \return 0 if fail, 1 if success.
  *
  * Print the default parameters values.
@@ -486,8 +537,8 @@ int MMG2D_defaultValues(MMG5_pMesh mesh) {
 }
 
 /**
- * \param mesh pointer toward the mesh
- * \param met pointer toward the metric
+ * \param mesh pointer to the mesh
+ * \param met pointer to the metric
  *
  * \return 1 if success, 0 if fail
  *
@@ -503,7 +554,12 @@ int MMG2D_parsop(MMG5_pMesh mesh,MMG5_pSol met) {
   fpos_t     position;
 
   /* Check for parameter file */
-  strcpy(data,mesh->namein);
+  if (mesh->info.fparam) {
+    strcpy(data,mesh->info.fparam);
+  }
+  else {
+    strcpy(data,mesh->namein);
+  }
 
   ptr = MMG5_Get_filenameExt(data);
 
@@ -513,10 +569,16 @@ int MMG2D_parsop(MMG5_pMesh mesh,MMG5_pSol met) {
   in = fopen(data,"rb");
 
   if ( !in ) {
-    sprintf(data,"%s","DEFAULT.mmg2d");
-    in = fopen(data,"rb");
-    if ( !in ) {
-      return 1;
+    if ( !mesh->info.fparam ) {
+      sprintf(data,"%s","DEFAULT.mmg2d");
+      in = fopen(data,"rb");
+      if ( !in )
+        return 1;
+    }
+    else if (mesh->info.fparam ) {
+      fprintf(stderr,"  ** In %s: %s file NOT FOUND. \n",__func__,data);
+      fprintf(stdout,"  ## ERROR: UNABLE TO LOAD PARAMETER FILE.\n");
+      return 0;
     }
   }
   if ( mesh->info.imprim >= 0 ) {
